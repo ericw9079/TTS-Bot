@@ -252,6 +252,36 @@ function sendTTS(channel,msg){
 	}
 }
 
+function playFile(channel,file){
+	if(!channel){
+		return false;
+	}
+	if(!channel.startsWith("VC:")){
+		channel = channelMaps[channel];
+	}
+	if(!channel){
+		return false;
+	}
+	if(players[channel]){
+		logger.log(`${channel}: File Request: ${file}`);
+		if(!fs.existsSync(file)){
+			logger.error(`${channel}: Can not play file ${file} as it does not exist`);
+			return false;
+		}
+		let resource = createAudioResource(fs.createReadStream(file));
+		if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 0){
+			players[channel].play(resource);
+			console.log(resource);
+			logger.log(`${channel}: Playing File: ${file}`);
+		}
+		else{
+			streamQueues[channel].push(resource);
+			logger.log(`${channel}: Queued File: ${file}`);
+		}
+		return true;
+	}
+}
+
 function prepForTTS(msg){
 	//msg = msg.replace(/(?:(?:https?|ftp):\/\/|\b(?:[a-z\d]+\.))(?:(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))?\))+(?:\((?:[^\s()<>]+|(?:\(?:[^\s()<>]+\)))?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))?/gi,""); // Remove Links
 	for(let str in ttsStrings){
@@ -585,7 +615,7 @@ function parseDiscordCommand(msg) {
 	  }
   }
   else if(cmd.startsWith("HELP")){
-	msg.reply({ content: new MessageEmbed()
+	msg.reply({ embeds: [new MessageEmbed()
 		.setTitle('Commands for Discord TTS')
 		.addFields(
 		  {name:`${prefix}join`,value:"Join a voice channel and bind tts to current text channel",inline:true},
@@ -594,7 +624,7 @@ function parseDiscordCommand(msg) {
 		  {name:`${prefix}leave`,value:"Disconnect from a voice channel",inline:true},
 		  {name:`${prefix}help [command]`,value:"Shows this help message",inline:true}
 		)
-		.setFooter("Don't add the <> or [] to the command"), allowedMentions: { repliedUser: true }}
+		.setFooter("Don't add the <> to the command")], allowedMentions: { repliedUser: true }}
 	);
   }
 }
@@ -701,6 +731,32 @@ discordClient.on("messageCreate", (msg) => {
 		message = message.replace(/<a?:(.*?):\d+>/g,"$1"); // Clean up emotes
 		let linklessMsg = message.replace(/(?:(?:https?|ftp):\/\/|\b(?:[a-z\d]+\.))(?:(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))?\))+(?:\((?:[^\s()<>]+|(?:\(?:[^\s()<>]+\)))?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))?/gi,""); // Remove Links
 		if(message.trim() && linklessMsg.trim()){
+			if(message.trim() == "🤔" && playFile("Channel:"+msg.channel.id,"./villager/Villager_idle2.ogg")){
+				return;
+			}
+			if(message.trim() == "👍" && playFile("Channel:"+msg.channel.id,"./villager/Villager_accept2.ogg")){
+				return;
+			}
+			if(message.trim() == "👎" && playFile("Channel:"+msg.channel.id,"./villager/Villager_deny1.ogg")){
+				return;
+			}
+			if(message.trim() == "💀" && playFile("Channel:"+msg.channel.id,"./villager/Villager_death.ogg")){
+				return;
+			}
+			if(message.trim() == "☠️" && playFile("Channel:"+msg.channel.id,"./villager/Villager_death.ogg")){
+				return;
+			}
+			if(message.trim() == "❓" && playFile("Channel:"+msg.channel.id,"./villager/Villager_trade1.ogg")){
+				// Red Question mark
+				return;
+			}
+			if(message.trim() == "❔" && playFile("Channel:"+msg.channel.id,"./villager/Villager_trade1.ogg")){
+				// Grey question mark
+				return;
+			}
+			if(/^\?+$/.test(message.trim()) && playFile("Channel:"+msg.channel.id,"./villager/Villager_trade1.ogg")){
+				return;
+			}
 			say("Channel:"+msg.channel.id,name,removeFormatting(message.trim()));
 		}
 		else{
@@ -836,6 +892,14 @@ discordClient.on("messageCreate", (msg) => {
 			}
 		}
 	}
+});
+
+discordClient.on("guildCreate", (guild) => {
+	client.users.fetch(config.OWNER_DISCORD).then((user) => {
+      user.createDM().then((channel) => {
+		channel.send(`Joined ${guild.name}`);
+      }).catch((e)=>{logger.error(e)});
+    }).catch((e)=>{logger.error(e)});
 });
 
 process.on("exit",  () => {
