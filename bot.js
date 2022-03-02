@@ -4,8 +4,10 @@ const discordClient = new Client({ intents: [Intents.FLAGS.GUILDS,Intents.FLAGS.
 const gtts = require('node-gtts')('en-uk');
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const fs = require('fs');
+const logger = require('./logger.js');
 const config = require("./config.json");
 const prefix = config.prefix;
+const logChannel = config.log;
 
 // Define configuration options
 var opts = {
@@ -22,28 +24,7 @@ var ttsStrings    = {};
 var twitchIgnore  = {};
 var censoredWords = {};
 var nameMappings  = {};
-
-// define a new console
-var logger = (function(){
-    return {
-        log: function(text){
-			let d = new Date();
-            console.log(`[${d.toLocaleString("en-CA",{dateStyle:"short",timeStyle:"medium",hour12:false})}|LOG] `+text);
-        },
-        info: function (text) {
-			let d = new Date();
-            console.info(`[${d.toLocaleString("en-CA",{dateStyle:"short",timeStyle:"medium",hour12:false})}|\x1b[96mINFO\x1b[89m\x1b[0m] `+text);
-        },
-        warn: function (text) {
-			let d = new Date();
-            console.warn(`[${d.toLocaleString("en-CA",{dateStyle:"short",timeStyle:"medium",hour12:false})}|\x1b[93mWARN\x1b[39m\x1b[0m] `+text);
-        },
-        error: function (text) {
-			let d = new Date();
-            console.error(`[${d.toLocaleString("en-CA",{dateStyle:"short",timeStyle:"medium",hour12:false})}|\x1b[91mERROR\x1b[39m\x1b[0m] \x1b[91m`+text+`\x1b[39m\x1b[0m`);
-        }
-    };
-}());
+var channelNames  = {};
 
 // Create a client with our options
 const client = new tmi.client(opts);
@@ -52,7 +33,7 @@ client.on('chat', onChatHandler);
 client.on('action', onActionHandler);
 client.on('connected', onConnectedHandler);
 client.on('cheer', onCheerHandler);
-client.on('raid', onRaidedHandler);
+client.on('raided', onRaidedHandler);
 client.on('sub', onSubHandler);
 client.on('subgift', onSubGiftHandler);
 client.on('resub', onResubHandler);
@@ -241,7 +222,8 @@ function sendTTS(channel,msg){
 	}
 	if(players[channel]){
 		let message = cleanMessage(prepForTTS(msg));
-		logger.log(`${channel}: TTS Request: ${message}`);
+		let channelName = channelNames[channel];
+		logger.log(`${channelName}: TTS Request: ${message}`);
 		let resource = createAudioResource(gtts.stream(message));
 		if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 0){
 			players[channel].play(resource);
@@ -263,20 +245,21 @@ function playFile(channel,file){
 		return false;
 	}
 	if(players[channel]){
-		logger.log(`${channel}: File Request: ${file}`);
+		let channelName = channelNames[channel];
+		logger.log(`${channelName}: File Request: ${file}`);
 		if(!fs.existsSync(file)){
-			logger.error(`${channel}: Can not play file ${file} as it does not exist`);
+			logger.error(`${channelName}: Can not play file ${file} as it does not exist`);
 			return false;
 		}
 		let resource = createAudioResource(fs.createReadStream(file));
 		if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 0){
 			players[channel].play(resource);
 			console.log(resource);
-			logger.log(`${channel}: Playing File: ${file}`);
+			logger.log(`${channelName}: Playing File: ${file}`);
 		}
 		else{
 			streamQueues[channel].push(resource);
-			logger.log(`${channel}: Queued File: ${file}`);
+			logger.log(`${channelName}: Queued File: ${file}`);
 		}
 		return true;
 	}
@@ -342,7 +325,7 @@ function joinVoice(voiceChannel){
 					guildId: voiceChannel.guild.id,
 					adapterCreator: voiceChannel.guild.voiceAdapterCreator,
 				});
-				connection.on('error',logger.log);
+				connection.on('error',logger.error);
 				streamQueues["VC:"+voiceChannel.id] = [];
 				let player = createAudioPlayer();
 				player.on(AudioPlayerStatus.Idle, () => {
@@ -352,6 +335,7 @@ function joinVoice(voiceChannel){
 				});
 				players["VC:"+voiceChannel.id] = player;
 				connection.subscribe(player);
+				channelNames['VC:'+voiceChannel.id] = `${voiceChannel.guild.name}->${voiceChannel.name}`;
 				resolve("VC:"+voiceChannel.id);
 			}
 			else{
@@ -645,12 +629,13 @@ discordClient.on('voiceStateUpdate', (oldMember, newMember) => {
 	if (oldUserChannel === null) {
 		// Joining VC
 		// Don't care
-		logger.log("Connected to:"+newUserChannel.name);
+		logger.log("Connected to:"+newUserChannel.name+" in "+newMember.guild.name);
 	} else if (newUserChannel === null) {
 		// Leaving VC
 		// Reset the bot for reuse if it gets disconnected
 		leaveVoice(oldMember.channelId,oldMember.guild.id);
-		logger.log("Disconnected from:"+oldUserChannel.name);
+		logger.log("Disconnected from:"+oldUserChannel.name+" in "+oldMember.guild.name);
+		delete channelNames['VC:'+oldUserChannel.id];
 	} else if (oldUserChannel !== null && newUserChannel !== null) {
 		// Moving VC
 		logger.log("Moved from "+oldUserChannel.name+" to "+newUserChannel.name);
@@ -677,6 +662,22 @@ discordClient.on("ready", () => {
 		logger.log("Discord client reconnected.");
 	}
 
+});
+
+discordClient.once("ready", async () => {
+	const channel = discordClient.channels.cache.get(logChannel);
+	try {
+		const webhooks = await channel.fetchWebhooks();
+		let webhook = webhooks.find(wh => wh.token);
+		if(!webhook) {
+			webhook = await channel.createWebhook("TTS Logging", {reason: "TTS logging"});
+		}
+		logger.init(webhook);
+	}
+	catch (error) {
+		logger.error("Error trying to configure discord logger");
+		console.log(error);
+	}
 });
 
 discordClient.on('shardResume', (id,replayedEvents) => {
@@ -895,11 +896,21 @@ discordClient.on("messageCreate", (msg) => {
 });
 
 discordClient.on("guildCreate", (guild) => {
-	client.users.fetch(config.OWNER_DISCORD).then((user) => {
+	discordClient.users.fetch(config.OWNER_DISCORD).then((user) => {
       user.createDM().then((channel) => {
 		channel.send(`Joined ${guild.name}`);
       }).catch((e)=>{logger.error(e)});
     }).catch((e)=>{logger.error(e)});
+	logger.log(`Joined ${guild.name}`);
+});
+
+discordClient.on("guildDelete", (guild) => {
+	discordClient.users.fetch(config.OWNER_DISCORD).then((user) => {
+      user.createDM().then((channel) => {
+		channel.send(`Left ${guild.name}`);
+      }).catch((e)=>{logger.error(e)});
+    }).catch((e)=>{logger.error(e)});
+	logger.log(`Left ${guild.name}`);
 });
 
 process.on("exit",  () => {
