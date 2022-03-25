@@ -758,6 +758,10 @@ discordClient.on("messageCreate", (msg) => {
 			if(/^\?+$/.test(message.trim()) && playFile("Channel:"+msg.channel.id,"./villager/Villager_trade1.ogg")){
 				return;
 			}
+			if(message.trim() == "🤐") {
+				say("Channel:"+msg.channel.id,name,"My lips are sealed");
+				return;
+			}
 			say("Channel:"+msg.channel.id,name,removeFormatting(message.trim()));
 		}
 		else{
