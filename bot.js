@@ -266,21 +266,22 @@ function playFile(channel,file){
 }
 
 function prepForTTS(msg){
-	//msg = msg.replace(/(?:(?:https?|ftp):\/\/|\b(?:[a-z\d]+\.))(?:(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))?\))+(?:\((?:[^\s()<>]+|(?:\(?:[^\s()<>]+\)))?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))?/gi,""); // Remove Links
+	msg = msg.replaceAll(/[a-z]+:\/\/[a-zA-Z0-9@:%._+~#?&//=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%._+~#?&//=]*)/gi,""); // Remove Links
+	msg = msg.replaceAll(/(?:^| )(?:\^ ?)+(?: |$)/gi,"^ ");
 	for(let str in ttsStrings){
-		msg = msg.replace(new RegExp(`(?<=^|[^\\w\\d])${str}(?=$|[^\\w\\d])`,"gi"),ttsStrings[str]);
+		msg = msg.replaceAll(new RegExp(`(?<=^|[^\\w\\d])${str}(?=$|[^\\w\\d])`,"gi"),ttsStrings[str]);
 	}
 	for(let str in nameMappings){
-		msg = msg.replace(new RegExp(`${str}`,"gi")," "+nameMappings[str]+" ");
+		msg = msg.replaceAll(new RegExp(`${str}`,"gi")," "+nameMappings[str]+" ");
 	}
-	msg = msg.replace(/(?<=^|[^\w\d])ericw9079(?=$|[^\w\d])/gi,"Eric"); // Replace with Eric
-	msg = msg.replace(/\n/g,". "); // Replace newlines with periods
+	msg = msg.replaceAll(/(?<=^|[^\w\d])ericw9079(?=$|[^\w\d])/gi,"Eric"); // Replace with Eric
+	msg = msg.replaceAll(/\n/g,". "); // Replace newlines with periods
 	return msg.trim();
 }
 
 function cleanMessage(msg){
 	for(let str in censoredWords){
-		msg = msg.replace(new RegExp(`${str}`,"gi"),censoredWords[str]);
+		msg = msg.replaceAll(new RegExp(`${str}`,"gi"),censoredWords[str]);
 	}
 	return msg.trim();
 }
