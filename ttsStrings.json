@@ -1,4 +1,5 @@
 {
+	"(\\d+)\\.(\\d+)"	: "$1 point $2",
 	":\\)"		: "smily face",
 	":\\("		: "sad face",
 	":D"		: "laughing face",
@@ -12,6 +13,7 @@
 	"ew"		: "eu",
 	"ftw"       : "for the win",
 	"gg"		: "good game",
+	"gl"		: "good luck",
 	"gj"		: "good job",
 	"gtg"		: "got to go",
 	"hbd"		: "happy birth day",
@@ -49,6 +51,7 @@
 	"rn"		: "right now",
 	"rq"		: "real quick",
 	"smh"       : "shake my head",
+	"smth"		: "something",
 	"tf"		: "the frick",
 	"tbf"       : "to be fair",
 	"tbh"       : "to be honest",
