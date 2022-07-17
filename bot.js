@@ -207,7 +207,33 @@ function onConnectedHandler (addr, port) {
 }
 
 function say(channel,user,msg){
-	sendTTS(channel,`${user} says: ${msg}.`);
+	msg = msg.trim();
+	if(!/[?.!]$/.test(msg)) {
+		if(msg.endsWith(">") && !/<.*>$/g.test(msg)) {
+			// Likely a typo
+			msg = `${msg.slice(0,-1)}?`;
+		}
+		else {
+			// Missing punctuation
+			msg = `${msg}.`;
+		}
+	}
+	if(msg.endsWith("?")) {
+		// Question
+		sendTTS(channel, `${user} asks: ${msg}`);
+	}
+	else if(msg.toUpperCase() === msg && msg.toLowerCase() !== msg) {
+		// All Caps
+		sendTTS(channel, `${user} shouts: ${msg}`);
+	}
+	else if(msg.endsWith("!")) {
+		// Exclamation
+		sendTTS(channel, `${user} exclaims: ${msg}`);
+	}
+	else {
+		// Normal
+		sendTTS(channel,`${user} says: ${msg}`);
+	}
 }
 
 function sendTTS(channel,msg){
@@ -731,7 +757,7 @@ discordClient.on("messageCreate", (msg) => {
 			}
 		}
 		message = message.replace(/<a?:(.*?):\d+>/g,"$1"); // Clean up emotes
-		let linklessMsg = message.replace(/(?:(?:https?|ftp):\/\/|\b(?:[a-z\d]+\.))(?:(?:[^\s()<>]+|\((?:[^\s()<>]+|(?:\([^\s()<>]+\)))?\))+(?:\((?:[^\s()<>]+|(?:\(?:[^\s()<>]+\)))?\)|[^\s`!()\[\]{};:'".,<>?«»“”‘’]))?/gi,""); // Remove Links
+		let linklessMsg = message.replace(/((([A-Za-z]{3,9}:(?:\/\/)?)(?:[-;:&=\+\$,\w]+@)?[A-Za-z0-9.-]+|(?:www.|[-;:&=\+\$,\w]+@)[A-Za-z0-9.-]+)((?:\/[\+~%\/.\w-_]*)?\??(?:[-\+=&;%@.\w_]*)#?(?:[\w]*))?)/gi,""); // Remove Links
 		if(message.trim() && linklessMsg.trim()){
 			if(message.trim() == "🤔" && playFile("Channel:"+msg.channel.id,"./villager/Villager_idle2.ogg")){
 				return;
