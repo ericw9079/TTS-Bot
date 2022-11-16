@@ -10,21 +10,21 @@ const prefix = config.prefix;
 const logChannel = config.log;
 
 // Define configuration options
-var opts = {
+const opts = {
   connection: {
 	secure: true
   }
 };
 
-var firstLogin    = 0;
-var streamQueues  = {};
-var players		  = {};
-var channelMaps   = {};
-var ttsStrings    = {};
-var twitchIgnore  = {};
-var censoredWords = {};
-var nameMappings  = {};
-var channelNames  = {};
+let firstLogin    = 0;
+const streamQueues  = {};
+const players		  = {};
+const channelMaps   = {};
+let ttsStrings    = {};
+let twitchIgnore  = {};
+let censoredWords = {};
+let nameMappings  = {};
+const channelNames  = {};
 
 // Create a client with our options
 const client = new tmi.client(opts);
@@ -45,7 +45,7 @@ client.on('primepaidupgrade', onPrimePaidUpgradeHandler);
 client.connect();
 
 // Called every time a chat message comes in
-function onChatHandler (target, context, msg, self) {
+function onChatHandler(target, context, msg, self) {
 	// Don't listen to my own messages..
     if (self) return;
 	if(twitchIgnore[target.substring(1)] && twitchIgnore[target.substring(1)].includes(context["user-id"]) || twitchIgnore["_global"].includes(context["user-id"])){
@@ -98,7 +98,7 @@ function onGiftPaidUpgradeHandler(channel, username, sender, userstate) {
     sendTTS("Twitch:"+channel.substring(1),`${username} is continuing the gift sub they got from ${sender}`);
 }
 
-function onPrimePaidUpgradeHandler(channel, username, methods, tags){
+function onPrimePaidUpgradeHandler(channel, username, methods, tags) {
 	switch(methods['plan']){
 		case "1000":
 			sendTTS("Twitch:"+channel.substring(1),`${username} converted their prime sub to a tier 1 sub.`);
@@ -178,7 +178,7 @@ function onResubHandler(channel, username, months, message, userstate, method) {
 	}
 }
 
-function onSubGiftHandler(channel, username, streakMonths, recipient, methods, userstate){
+function onSubGiftHandler(channel, username, streakMonths, recipient, methods, userstate) {
 	let plan = methods['plan'];
 	let months = ~~userstate["msg-param-gift-months"] || 1;
 	switch(plan){
@@ -202,11 +202,11 @@ function onSubGiftHandler(channel, username, streakMonths, recipient, methods, u
 	}
 }
 
-function onConnectedHandler (addr, port) {
+function onConnectedHandler(addr, port) {
   logger.log(`* Connected to ${addr}:${port}`);
 }
 
-function say(channel,user,msg){
+function say(channel,user,msg) {
 	msg = msg.trim();
 	if(!/[?.!]$/.test(msg)) {
 		if(msg.endsWith(">") && !/<.*>$/g.test(msg)) {
@@ -218,17 +218,25 @@ function say(channel,user,msg){
 			msg = `${msg}.`;
 		}
 	}
-	if(msg.endsWith("?")) {
+	if(msg.endsWith("?") && msg.toUpperCase() === msg && msg.toLowerCase() !== msg) {
+		// All Caps Question
+		sendTTS(channel, `${user} asks loudly: ${msg.toLowerCase()}`);
+	}
+	else if(msg.endsWith("?")) {
 		// Question
 		sendTTS(channel, `${user} asks: ${msg}`);
 	}
-	else if(msg.toUpperCase() === msg && msg.toLowerCase() !== msg) {
-		// All Caps
-		sendTTS(channel, `${user} shouts: ${msg}`);
+	else if(msg.endsWith("!") && msg.toUpperCase() === msg && msg.toLowerCase() !== msg) {
+		// All Caps Question
+		sendTTS(channel, `${user} exclaims loudly: ${msg.toLowerCase()}`);
 	}
 	else if(msg.endsWith("!")) {
 		// Exclamation
 		sendTTS(channel, `${user} exclaims: ${msg}`);
+	}
+	else if(msg.toUpperCase() === msg && msg.toLowerCase() !== msg) {
+		// All Caps
+		sendTTS(channel, `${user} shouts: ${msg}`);
 	}
 	else {
 		// Normal
@@ -236,7 +244,19 @@ function say(channel,user,msg){
 	}
 }
 
-function sendTTS(channel,msg){
+function queueResource(channel, resource) {
+	streamQueues[channel].push(resource);
+	if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 1){
+		playResource(channel);
+	}
+}
+
+async function playResource(channel) {
+	const resource = await streamQueues[channel].pop();
+	players[channel].play(resource);
+};
+
+function sendTTS(channel,msg) {
 	if(!channel){
 		return;
 	}
@@ -247,20 +267,16 @@ function sendTTS(channel,msg){
 		return;
 	}
 	if(players[channel]){
-		let message = cleanMessage(prepForTTS(msg));
-		let channelName = channelNames[channel];
+		const message = cleanMessage(prepForTTS(msg));
+		const channelName = channelNames[channel];
 		logger.log(`${channelName}: TTS Request: ${message}`);
-		let resource = createAudioResource(gtts.stream(message));
-		if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 0){
-			players[channel].play(resource);
-		}
-		else{
-			streamQueues[channel].push(resource);
-		}
+		const stream = gtts.stream(message);
+		const resource = createAudioResource(stream);
+		queueResource(channel,resource);
 	}
 }
 
-function playFile(channel,file){
+function playFile(channel,file) {
 	if(!channel){
 		return false;
 	}
@@ -291,7 +307,7 @@ function playFile(channel,file){
 	}
 }
 
-function prepForTTS(msg){
+function prepForTTS(msg) {
 	msg = msg.replaceAll(/[a-z]+:\/\/[a-zA-Z0-9@:%._+~#?&//=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%._+~#?&//=]*)/gi,""); // Remove Links
 	msg = msg.replaceAll(/(?:^| )(?:\^ ?)+(?: |$)/gi,"^ ");
 	for(let str in ttsStrings){
@@ -305,14 +321,14 @@ function prepForTTS(msg){
 	return msg.trim();
 }
 
-function cleanMessage(msg){
+function cleanMessage(msg) {
 	for(let str in censoredWords){
 		msg = msg.replaceAll(new RegExp(`${str}`,"gi"),censoredWords[str]);
 	}
 	return msg.trim();
 }
 
-function prepEmotes(userstate,message){
+function prepEmotes(userstate,message) {
 	let msg = message;
 	let emoteTotal = 0;
 	let emoteMsg = "";
@@ -333,7 +349,7 @@ function prepEmotes(userstate,message){
 	return msg.trim()+emoteMsg;
 }
 
-function removeFormatting(msg){
+function removeFormatting(msg) {
 	let message = msg;
 	const formatStrings = [/\*(.*?)\*/gs,/`{3}\w*\n(.*?)`{3}/gs,/`{3}(.*?)`{3}/gs,/`(.*?)`/gs,/_(.*?)_/gs,/^>>> (.*?)/gm,/^> (.*?)/gm];
 	for(key in formatStrings){
@@ -343,7 +359,7 @@ function removeFormatting(msg){
 	return message;
 }
 
-function joinVoice(voiceChannel){
+function joinVoice(voiceChannel) {
 	return new Promise((resolve, reject) => {
 		if(voiceChannel){
 			if(voiceChannel.joinable){
@@ -357,7 +373,7 @@ function joinVoice(voiceChannel){
 				let player = createAudioPlayer();
 				player.on(AudioPlayerStatus.Idle, () => {
 					if(streamQueues["VC:"+voiceChannel.guild.me.voice.channelId].length > 0){
-						player.play(streamQueues["VC:"+voiceChannel.id].pop());
+						playResource("VC:"+voiceChannel.guild.me.voice.channelId);
 					}
 				});
 				players["VC:"+voiceChannel.id] = player;
@@ -375,7 +391,7 @@ function joinVoice(voiceChannel){
 	});
 }
 
-function leaveVoice(voiceId,guildId){
+function leaveVoice(voiceId,guildId) {
 	if(getVoiceConnection(guildId)){
 		
 		getVoiceConnection(guildId).destroy();
@@ -393,7 +409,7 @@ function leaveVoice(voiceId,guildId){
 	}
 }
 
-function loadCensoredWords(){
+const loadCensoredWords = () => {
 	let rawdata = fs.readFileSync('./censoredWords.json');
 	try{
 		let dataObj = JSON.parse(rawdata);
@@ -414,11 +430,11 @@ function loadCensoredWords(){
 		}
 		console.log(e);
 	}
-}
+};
 loadCensoredWords();
 setInterval(loadCensoredWords,60000);
 
-function loadNameMappings(){
+const loadNameMappings = () => {
 	let rawdata = fs.readFileSync('./nameMappings.json');
 	try{
 		let dataObj = JSON.parse(rawdata);
@@ -439,11 +455,11 @@ function loadNameMappings(){
 		}
 		console.log(e);
 	}
-}
+};
 loadNameMappings();
 setInterval(loadNameMappings,60000);
 
-function loadIgnoreList(){
+const loadIgnoreList = () => {
 	let rawdata = fs.readFileSync('./ignoreList.json');
 	try{
 		let dataObj = JSON.parse(rawdata);
@@ -464,11 +480,11 @@ function loadIgnoreList(){
 		}
 		console.log(e);
 	}
-}
+};
 loadIgnoreList();
 setInterval(loadIgnoreList,60000);
 
-function loadTTSStrings(){
+const loadTTSStrings = () => {
 	let rawdata = fs.readFileSync('./ttsStrings.json');
 	try{
 		let dataObj = JSON.parse(rawdata);
@@ -489,13 +505,13 @@ function loadTTSStrings(){
 		}
 		console.log(e);
 	}
-}
+};
 loadTTSStrings();
 setInterval(loadTTSStrings,60000);
 
 setInterval(() => {}, 1 << 30); // Bogus Interval to keep the process alive
 
-function parseDiscordCommand(msg) {
+const parseDiscordCommand = (msg) => {
   var cmd = msg.content.toUpperCase().replace(prefix.toUpperCase(), "");
 
   if(msg.author.bot === true) {
@@ -638,7 +654,7 @@ function parseDiscordCommand(msg) {
 		.setFooter("Don't add the <> to the command")], allowedMentions: { repliedUser: true }}
 	);
   }
-}
+};
 
 discordClient.on('voiceStateUpdate', (oldMember, newMember) => {
 	if(oldMember.id != oldMember.guild.me.id){
