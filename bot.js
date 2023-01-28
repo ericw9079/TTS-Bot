@@ -1,6 +1,6 @@
 const tmi = require('tmi.js');
-const { Client, Intents, MessageEmbed } = require('discord.js');
-const discordClient = new Client({ intents: [Intents.FLAGS.GUILDS,Intents.FLAGS.GUILD_VOICE_STATES,Intents.FLAGS.GUILD_MESSAGES] });
+const { Client, GatewayIntentBits, MessageEmbed } = require('discord.js');
+const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const gtts = require('node-gtts')('en-uk');
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const fs = require('fs');
@@ -296,7 +296,6 @@ function playFile(channel,file) {
 		let resource = createAudioResource(fs.createReadStream(file));
 		if(players[channel].state.status == AudioPlayerStatus.Idle && streamQueues[channel].length == 0){
 			players[channel].play(resource);
-			console.log(resource);
 			logger.log(`${channelName}: Playing File: ${file}`);
 		}
 		else{
@@ -372,8 +371,8 @@ function joinVoice(voiceChannel) {
 				streamQueues["VC:"+voiceChannel.id] = [];
 				let player = createAudioPlayer();
 				player.on(AudioPlayerStatus.Idle, () => {
-					if(streamQueues["VC:"+voiceChannel.guild.me.voice.channelId].length > 0){
-						playResource("VC:"+voiceChannel.guild.me.voice.channelId);
+					if(streamQueues["VC:"+voiceChannel.guild.members.me.voice.channelId].length > 0){
+						playResource("VC:"+voiceChannel.guild.members.me.voice.channelId);
 					}
 				});
 				players["VC:"+voiceChannel.id] = player;
@@ -518,13 +517,13 @@ const parseDiscordCommand = (msg) => {
     return;
   }
 
-  if (!msg.channel.type.startsWith("GUILD")){
+  if (msg.channel.isDMBased()){
     // We should always have send message perms in a dm.
     msg.reply({ content: ":x: This command must be used in a server.", allowedMentions: { repliedUser: true }});
     return;
   }
 
-  if(msg.channel.type !== "GUILD_TEXT"){
+  if(!msg.channel.isTextBased()){
     msg.reply({ content: ":x: This command must be used in a text channel.", allowedMentions: { repliedUser: true }});
     return;
   }
@@ -657,7 +656,7 @@ const parseDiscordCommand = (msg) => {
 };
 
 discordClient.on('voiceStateUpdate', (oldMember, newMember) => {
-	if(oldMember.id != oldMember.guild.me.id){
+	if(oldMember.id != oldMember.guild.members.me.id){
 		// We only care if we change voice states
 		return;
 	}
@@ -756,7 +755,7 @@ discordClient.on("messageCreate", (msg) => {
 	if(msg.content.toUpperCase().startsWith(prefix.toUpperCase())) {
 		parseDiscordCommand(msg);
 	}
-	else if(msg.channel.type === "GUILD_TEXT" && channelMaps["Channel:"+msg.channel.id]){
+	else if(msg.channel.isTextBased() && channelMaps["Channel:"+msg.channel.id]){
 		let name = msg.member.displayName;
 		if(msg.author.id == config.OWNER_DISCORD){
 			name = "Eric";
