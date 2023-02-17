@@ -1,5 +1,5 @@
 const tmi = require('tmi.js');
-const { Client, GatewayIntentBits, MessageEmbed } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 const gtts = require('node-gtts')('en-uk');
 const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
@@ -641,7 +641,7 @@ const parseDiscordCommand = (msg) => {
 	  }
   }
   else if(cmd.startsWith("HELP")){
-	msg.reply({ embeds: [new MessageEmbed()
+	msg.reply({ embeds: [new EmbedBuilder()
 		.setTitle('Commands for Discord TTS')
 		.addFields(
 		  {name:`${prefix}join`,value:"Join a voice channel and bind tts to current text channel",inline:true},
@@ -650,7 +650,7 @@ const parseDiscordCommand = (msg) => {
 		  {name:`${prefix}leave`,value:"Disconnect from a voice channel",inline:true},
 		  {name:`${prefix}help [command]`,value:"Shows this help message",inline:true}
 		)
-		.setFooter("Don't add the <> to the command")], allowedMentions: { repliedUser: true }}
+		.setFooter({ text: "Don't add the <> to the command" })], allowedMentions: { repliedUser: true }}
 	);
   }
 };
