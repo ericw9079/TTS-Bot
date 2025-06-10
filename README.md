@@ -42,4 +42,4 @@ Please don't
 if you'd like to use the bot please contact me.
 
 # Credits
-© 2021 ericw9079
+© 2024 ericw9079
