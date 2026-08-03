@@ -1,10 +1,10 @@
 const tmi = require('tmi.js');
 const { Client, GatewayIntentBits, EmbedBuilder } = require('discord.js');
 const discordClient = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
-const gtts = require('node-gtts')('en-uk');
-const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, getVoiceConnection, createAudioPlayer, createAudioResource, AudioPlayerStatus, entersState, VoiceConnectionStatus } = require('@discordjs/voice');
 const fs = require('fs');
 const logger = require('@ericw9079/logger');
+const gtts = require('./tts')('en-uk');
 const config = require("./config.json");
 const prefix = config.prefix;
 const logChannel = config.log;
@@ -358,36 +358,35 @@ function removeFormatting(msg) {
 	return message;
 }
 
-function joinVoice(voiceChannel) {
-	return new Promise((resolve, reject) => {
-		if(voiceChannel){
-			if(voiceChannel.joinable){
-				var connection = joinVoiceChannel({
-					channelId: voiceChannel.id,
-					guildId: voiceChannel.guild.id,
-					adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-				});
-				connection.on('error',logger.error);
-				streamQueues["VC:"+voiceChannel.id] = [];
-				let player = createAudioPlayer();
-				player.on(AudioPlayerStatus.Idle, () => {
-					if(streamQueues["VC:"+voiceChannel.guild.members.me.voice.channelId].length > 0){
-						playResource("VC:"+voiceChannel.guild.members.me.voice.channelId);
-					}
-				});
-				players["VC:"+voiceChannel.id] = player;
-				connection.subscribe(player);
-				channelNames['VC:'+voiceChannel.id] = `${voiceChannel.guild.name}->${voiceChannel.name}`;
-				resolve("VC:"+voiceChannel.id);
-			}
-			else{
-				reject("Can't join given channel");
-			}
+const joinVoice = async (voiceChannel) => {
+	if(voiceChannel){
+		if(voiceChannel.joinable){
+			const connection = joinVoiceChannel({
+				channelId: voiceChannel.id,
+				guildId: voiceChannel.guild.id,
+				adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+			});
+			connection.on('error', (error) => logger.error('connection error:', error));
+			streamQueues["VC:"+voiceChannel.id] = [];
+			const player = createAudioPlayer();
+			player.on('error', (error) => logger.error('player error:', error));
+			player.on(AudioPlayerStatus.Idle, () => {
+				if(streamQueues["VC:"+voiceChannel.guild.members.me.voice.channelId].length > 0){
+					playResource("VC:"+voiceChannel.guild.members.me.voice.channelId);
+				}
+			});
+			players["VC:"+voiceChannel.id] = player;
+			connection.subscribe(player);
+			channelNames['VC:'+voiceChannel.id] = `${voiceChannel.guild.name}->${voiceChannel.name}`;
+			return "VC:"+voiceChannel.id;
 		}
 		else{
-			reject("No channel given");
+			throw new Error("Can't join given channel");
 		}
-	});
+	}
+	else{
+		throw new Error("No channel given");
+	}
 }
 
 function leaveVoice(voiceId,guildId) {
@@ -694,7 +693,7 @@ discordClient.on('voiceStateUpdate', (oldMember, newMember) => {
 	}
 });
 
-discordClient.on("ready", () => {
+discordClient.on("clientReady", () => {
 	if(firstLogin !== 1) {
 	  firstLogin = 1;
 	  logger.log("Discord client connected successfully.");
@@ -706,7 +705,7 @@ discordClient.on("ready", () => {
 
 });
 
-discordClient.once("ready", async () => {
+discordClient.once("clientReady", async () => {
 	const channel = discordClient.channels.cache.get(logChannel);
 	try {
 		const webhooks = await channel.fetchWebhooks();
