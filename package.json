@@ -10,7 +10,7 @@
   "dependencies": {
     "@discordjs/opus": "^0.10.0",
     "@discordjs/voice": "^0.19.2",
-    "@ericw9079/logger": "^3.0.1",
+    "@ericw9079/logger": "^3.0.5",
     "@snazzah/davey": "^0.1.12",
     "discord.js": "^14.26.4",
     "escape-string-regexp": "^5.0.0",
