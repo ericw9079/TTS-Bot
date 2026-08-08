@@ -697,7 +697,7 @@ discordClient.on("clientReady", () => {
 	if(firstLogin !== 1) {
 	  firstLogin = 1;
 	  logger.log("Discord client connected successfully.");
-	  discordClient.user.setActivity(`tts to discord - ${prefix}help`,{ type: 'STREAMING' });
+	  discordClient.user.setPresence({ activities: [{ name: `tts to discord - ${prefix}help`, type: 'STREAMING' }] });
 	}
 	else{
 		logger.log("Discord client reconnected.");
@@ -722,7 +722,7 @@ discordClient.once("clientReady", async () => {
 });
 
 discordClient.on('shardResume', (id,replayedEvents) => {
-	discordClient.user.setActivity(`tts to discord - ${prefix}help`,{ type: 'STREAMING' });
+	discordClient.user.setPresence({ activities: [{ name: `tts to discord - ${prefix}help`, type: 'STREAMING' }] });
 });
 
 discordClient.on("disconnect", (event) => {
